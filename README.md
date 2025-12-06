@@ -93,6 +93,5 @@ Browser-based American Sign Language (ASL) translator that combines MediaPipe Ha
 
 - Multi-hand support for simultaneous gestures.
 - Cloud sync for datasets.
-- Model export/import for sharing trained gestures across machines.
 
 Feel free to fork and adapt—this project is intentionally framework-free so it’s easy to tweak for demos or coursework.

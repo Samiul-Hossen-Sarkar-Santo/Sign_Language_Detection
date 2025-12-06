@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>ASL Sign Language Translator (AI Lab Project)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <link rel="stylesheet" href="styles.css" />
+
+  <!-- MediaPipe Hands + utils (CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+</head>
+<body>
+<div class="app">
+
+  <!-- LEFT SIDE -->
+  <div class="panel">
+    <div class="header-top">
+      <h1>ASL Live Gesture Tracker</h1>
+      <button id="btn-asl-guide" class="secondary btn-small">ASL guide</button>
+    </div>
+    <p class="header-subtitle">
+      Allow camera access, then teach the model ASL gestures. Use the ASL guide to match your hand.
+    </p>
+
+    <div id="video-wrapper">
+      <video id="input-video" autoplay playsinline></video>
+      <canvas id="output-canvas"></canvas>
+    </div>
+
+    <div class="status">
+      <span id="status-camera">Camera: <strong>initializing…</strong></span>
+      <span class="badge" id="status-hands">Hands model: loading…</span>
+    </div>
+
+    <div class="controls">
+
+      <h2>Training controls</h2>
+
+      <label for="label-select">Label for current gesture</label>
+      <select id="label-select">
+        <!-- A–Z -->
+        <option value="A">A</option><option value="B">B</option><option value="C">C</option>
+        <option value="D">D</option><option value="E">E</option><option value="F">F</option>
+        <option value="G">G</option><option value="H">H</option><option value="I">I</option>
+        <option value="J">J</option><option value="K">K</option><option value="L">L</option>
+        <option value="M">M</option><option value="N">N</option><option value="O">O</option>
+        <option value="P">P</option><option value="Q">Q</option><option value="R">R</option>
+        <option value="S">S</option><option value="T">T</option><option value="U">U</option>
+        <option value="V">V</option><option value="W">W</option><option value="X">X</option>
+        <option value="Y">Y</option><option value="Z">Z</option>
+        <option value="Space">Space</option>
+        <option value="Delete">Delete</option>
+        <option value="," title="Comma">Comma (,)</option>
+        <option value="." title="Period">Period (.)</option>
+        <option value="?" title="Question mark">Question (?)</option>
+        <option value="!" title="Exclamation">Exclamation (!)</option>
+      </select>
+
+      <div class="row">
+        <button id="btn-add-sample" disabled>Add sample</button>
+        <button id="btn-add-burst" class="secondary" disabled>+10 samples</button>
+      </div>
+
+      <div id="samples-info" class="samples-info">
+        No samples yet. Start by adding 10–20 samples for a few gestures.
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT SIDE -->
+  <div class="panel">
+
+    <h2>Live prediction</h2>
+
+    <div class="prediction-display">
+      <div>
+        <div style="font-size:0.7rem; opacity:0.7;">Current prediction</div>
+        <div id="prediction-main" class="prediction-main">–</div>
+      </div>
+      <div class="prediction-meta">
+        <div>Confidence: <span id="prediction-conf">–</span></div>
+        <div>Samples: <span id="prediction-samples">0</span></div>
+      </div>
+    </div>
+
+    <div class="toggle-row">
+      <span>Auto-type when stable</span>
+      <label><input type="checkbox" id="toggle-auto-type" checked /> Enabled</label>
+    </div>
+
+    <div class="row">
+      <button id="btn-commit-current" class="secondary">Add current letter</button>
+      <button id="btn-clear-text" class="secondary">Clear text</button>
+    </div>
+
+    <label for="output-text">Recognized text</label>
+    <textarea id="output-text" placeholder="Your sentence will appear here…"></textarea>
+
+    <div class="row">
+      <button id="btn-speak">Speak text</button>
+      <button id="btn-stop-speak" class="secondary">Stop</button>
+    </div>
+
+    <button id="btn-download-pdf" class="secondary">Download text as PDF</button>
+
+    <h2 style="margin-top:10px;">Dataset & storage</h2>
+
+    <div class="row">
+      <button id="btn-export" class="secondary">Export dataset (JSON)</button>
+      <button id="btn-import" class="secondary">Import dataset</button>
+    </div>
+
+    <div class="row">
+      <button id="btn-reset" class="secondary">Reset all data</button>
+      <button id="btn-manage-samples" class="secondary">Manage samples</button>
+    </div>
+
+    <input id="file-import" type="file" accept="application/json" style="display:none" />
+
+    <div id="storage-status" class="storage-status"></div>
+  </div>
+</div>
+
+<!-- ASL GUIDE WINDOW -->
+<div id="asl-guide-window" class="guide-window hidden">
+  <div id="asl-guide-header" class="guide-header">
+    <span>ASL Alphabet Guide</span>
+      <div class="guide-header-actions">
+      <button id="btn-minimize-guide" class="secondary btn-small">_</button>
+      <button id="btn-close-guide" class="secondary btn-small">✕</button>
+    </div>
+  </div>
+  <div class="guide-body">
+    <img id="asl-guide-img" src="asl_guide 1.png" alt="ASL guide" />
+  </div>
+  <div class="guide-resize-bar horizontal top" data-guide-resize="top"></div>
+  <div class="guide-resize-bar horizontal bottom" data-guide-resize="bottom"></div>
+  <div class="guide-resize-bar vertical left" data-guide-resize="left"></div>
+  <div class="guide-resize-bar vertical right" data-guide-resize="right"></div>
+  <div id="guide-resize-corner" class="guide-resize-corner" data-guide-resize="corner" aria-label="Resize window"></div>
+</div>
+
+<!-- SAMPLE MANAGER -->
+<div id="sample-manager-overlay" class="overlay hidden">
+  <div class="manager-window">
+
+    <div class="manager-header">
+      <span>Sample Manager (view, preview & delete training samples)</span>
+      <div class="manager-header-actions">
+        <button id="btn-header-delete" class="secondary btn-small" disabled>Delete selected</button>
+        <button id="btn-close-manager" class="secondary btn-small">✕</button>
+      </div>
+    </div>
+
+    <div class="manager-body">
+
+      <!-- LEFT: LABEL LIST -->
+      <div class="manager-labels">
+        <div style="margin-bottom:4px; font-weight:600;">Labels & counts</div>
+        <div id="manager-label-list"></div>
+      </div>
+
+      <!-- RIGHT SIDE -->
+      <div class="manager-details fixed-grid">
+
+        <!-- SAMPLE LIST -->
+        <div class="manager-samples-list">
+          <div style="margin-bottom:4px; font-weight:600;">Samples</div>
+          <div id="manager-samples-container">
+            <div style="font-size:0.8rem; opacity:0.75;">
+              Select a label to view samples.
+            </div>
+          </div>
+        </div>
+
+        <!-- PREVIEW -->
+        <div class="manager-preview">
+          <div style="font-weight:600;">Preview</div>
+          <div id="manager-preview-meta" style="font-size:0.75rem; opacity:0.85;">No sample selected.</div>
+          <canvas id="manager-preview-canvas" width="420" height="260"></canvas>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

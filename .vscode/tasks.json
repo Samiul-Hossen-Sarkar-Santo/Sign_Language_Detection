@@ -1,0 +1,10 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "append_css",
+			"type": "shell",
+			"command": "echo \".v-btn.dwelling { background: rgba(34, 197, 94, 0.6) !important; transition: background-color 1s linear; }\" >> \"f:\\BUP\\Semester 7\\Courses\\Artificial Intelligence\\Lab\\AI Project\\style.css\""
+		}
+	]
+}
